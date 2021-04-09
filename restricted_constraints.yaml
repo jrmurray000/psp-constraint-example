@@ -1,0 +1,176 @@
+#johnmurray@ - 6/5/2020
+
+#Converts the following 'restricted' SCC to Gatekeeper PSP constrinats
+#apiVersion: v1
+#kind: SecurityContextConstraints
+#metadata:
+#  annotations:
+#    kubernetes.io/description: restricted denies access to all host features and requires
+#      pods to be run with a UID, and SELinux context that are allocated to the namespace.  This
+#      is the most restrictive SCC.
+#  creationTimestamp: null
+#  name: restricted
+#allowHostDirVolumePlugin: false
+#allowHostIPC: false
+#allowHostNetwork: false
+#allowHostPID: false
+#allowHostPorts: false
+#allowPrivilegedContainer: false
+#allowedCapabilities: null
+#allowedFlexVolumes: null
+#defaultAddCapabilities: null
+#fsGroup:
+#  type: RunAsAny
+#priority: null
+#readOnlyRootFilesystem: false
+#requiredDropCapabilities:
+#- KILL
+#- MKNOD
+#- SYS_CHROOT
+#runAsUser:
+#  type: RunAsAny
+#seLinuxContext:
+#  type: MustRunAs
+#supplementalGroups:
+#  type: RunAsAny
+#volumes:
+#- configMap
+#- downwardAPI
+#- emptyDir
+#- nfs
+#- persistentVolumeClaim
+#- projected
+#- secret
+#users: []
+#groups:
+#- system:authenticated
+
+# namespaces with the label "gke.io/podsecurity":"exempt" are excluded from these Constraints
+
+#Constraints exclude these settings:
+# allowHostDirVolumePlugin - hostpath is not an allowed volume type, so this is redundant
+# defaultAddCapabilities - null, no rule required
+# allowedFlexVolumes - null, no rule required
+# defaultAddCapabilities - null, no rule required
+# priority - null, also proiority is unsupported
+# readOnlyRootFilesystem - false, no rule required
+# seLinuxContext - SCC looks up the value from the namespace annotation. not supported see: --- https://access.redhat.com/documentation/en-us/openshift_container_platform/4.1/html/authentication/managing-pod-security-policies#security-context-constraints-pre-allocated-values_configuring-internal-oauth
+# Values set by namespace level annotation
+# supplementalgroups - RunAsAny, no rule required
+---
+#allowHostIPC, allowHostPID
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPHostNamespace
+metadata:
+  name: psp-host-namespace
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+      - namespaceSelector:
+          matchExpressions:
+            - {key: gke.io/podsecurity, operator: NotIn, values: [exempt]}
+---
+#allowHostNetwork, allowHostPorts
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPHostNetworkingPorts
+metadata:
+  name: psp-host-network-ports
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+      - namespaceSelector:
+          matchExpressions:
+            - {key: gke.io/podsecurity, operator: NotIn, values: [exempt]}
+  parameters:
+    hostNetwork: false
+---
+#allowPrivilegedContainer
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPPrivilegedContainer
+metadata:
+  name: psp-privileged-container
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+      - namespaceSelector:
+          matchExpressions:
+            - {key: gke.io/podsecurity, operator: NotIn, values: [exempt]}
+---
+#allowedCapabilities, requiredDropCapabilities
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPCapabilities
+metadata:
+  name: capabilities-demo
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+      - namespaceSelector:
+          matchExpressions:
+            - {key: gke.io/podsecurity, operator: NotIn, values: [exempt]}
+  parameters:
+    requiredDropCapabilities: ["KILL","MKNOD","SYS_CHROOT"]
+---
+#fsGroup
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPFSGroup
+metadata:
+  name: psp-fsgroup
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+      - namespaceSelector:
+          matchExpressions:
+            - {key: gke.io/podsecurity, operator: NotIn, values: [exempt]}
+  parameters:
+    rule: "RunAsAny"
+---
+#runAsUser
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPAllowedUsers
+metadata:
+  name: psp-pods-allowed-user-ranges
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+      - namespaceSelector:
+          matchExpressions:
+            - {key: gke.io/podsecurity, operator: NotIn, values: [exempt]}
+  parameters:
+    runAsUser:
+      rule: RunAsAny
+---
+#volumes
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPVolumeTypes
+metadata:
+  name: psp-volume-types
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+      - namespaceSelector:
+          matchExpressions:
+            - {key: gke.io/podsecurity, operator: NotIn, values: [exempt]}
+  parameters:
+    volumes:
+    # - "*" # * may be used to allow all volume types
+      - configMap
+      - downwardAPI
+      - emptyDir
+      - nfs
+      - persistentVolumeClaim
+      - projected
+      - secret
