@@ -1,6 +1,8 @@
 #Example Conversion of SCC Policy to Gatekeeper PSP Constraints
 
-Converts the following 'restricted' SCC to Gatekeeper PSP constraints:
+Converts the following 'restricted' SCC to Gatekeeper PSP constraints.
+
+See "restricted_constraints.yaml" for the equivalent Gatekeeper constraints, which use ConstraintTemplates available in the Gatekeeper project library.
 
 ```
 apiVersion: v1
